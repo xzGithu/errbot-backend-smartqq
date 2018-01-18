@@ -1,0 +1,223 @@
+import os,logging
+import time
+import sys
+from errbot.backends.base import Message, Person, Room, RoomOccupant,Identifier,ONLINE
+from errbot.core import ErrBot
+
+log = logging.getLogger(__name__)
+
+
+try:
+    from qqbot import _bot as bot
+    from qqbot import RunBot
+except ImportError:
+    log.exception("canot start the qq backend")
+    log.fatal("if you want to use qq. please install the qqbot use 'pip install qqbot'")
+    sys.exit(1)
+
+
+class QqPerson(Identifier):
+    def __init__(self,user,bot):
+        self._user=user
+        self._bot=bot
+    @property
+
+    @property
+    def user(self):
+        return self._user.name
+
+    @property
+    def fullname(self):
+        return self._user.name
+
+    @property
+    def nick(self):
+        return self._user.nick
+
+
+    def __unicode__(self):
+        return self._user
+    __str__=__unicode__
+
+    handler=nick
+    aclattr=nick
+    person=nick
+    client=None
+
+    @property
+    def displayname(self):
+        return self._user.name
+
+
+
+
+class QqRoomOccupant(QqPerson):
+    def __init__(self,user,room,bot):
+        super(QqRoomOccupant,self).__init__(user,bot=self)
+        self._room=room
+
+    @property
+    def room(self):
+        return self._room
+
+
+
+class QqRoom(object):
+    def __init__(self,chat,bot):
+        self._chat=chat
+        self._bot=bot
+
+    @property
+    def chat(self):
+        return self._chat
+
+    def __unicode__(self):
+        return self._chat
+    __str__=__unicode__
+    person=None
+    
+    def join(self):
+        """
+        not support
+        """
+
+    def leave(self):
+        """
+        not support
+        """
+
+    def create(self):
+        """
+        not support
+        """
+    def destory(self):
+        """
+        not support
+        """
+
+    @property
+    def exists(self):
+        return Ture
+
+    @property
+    def Topic(self):
+        return self._chat
+
+    @property
+    def occupants(self):
+        return [QqRoomOccupant(user=member,room=self,bot=self._bot) for member in self._bot.List(self._chat)]
+
+    
+class QqBackend(ErrBot):
+    def __init__(self,config):
+        super().__init__(config)
+        identity = config.BOT_IDENTITY
+        self.bot_config.QQID=identity.get('QQID',None)
+        self.bot_config.QQSEC=identity.get('QQSEC',None)
+        #self.bot_config.RONGID=getattr(config,'RONGID',True)
+        #self.bot_config.RONGSEC=getattr(config,'RONGSEC',True)
+        self.bot = bot
+        self.bot.Login(['-q',self.bot_config.QQID])
+        #self.bot.Run()
+        print (self.bot_config.QQID)
+        print ('12312312313213132132132')
+        self.bot_identifier=self.bot_config.QQID
+        print (self.bot_identifier)
+
+        
+    def build_reply(self, msg, text=None, private=False, threaded=False):
+        response = self.build_message(text)
+        response.frm = self.bot_identifier
+        if private:
+            response.to = msg.frm
+        else:
+            response.to = msg.frm if msg.is_direct else msg.to
+        return response
+
+
+
+    def build_message(self, text):
+        """
+        """
+        print (text)
+        return super().build_message(text)
+
+    def build_identifier(self, text_repf):
+        """
+        """
+        log.debug("building an identifier from %s" % txtrep)
+        text = text_repr.strip()
+
+        return QqPerson(text, self)
+
+#    def serve_once(self):
+#        log.info('initing connecting')
+#        print ('===================================================')
+#        bot.Login(['-q',self.bot_config.QQID])
+    def serve_forever(self):
+        self.connect()
+        self.connect_callback()
+        log.info('initing connecting')
+        #self.bot.Login(['-q',self.bot_config.QQID])
+        #self.bot.Run()
+        print ('===================================================')
+        if self.bot.List('buddy'):
+            print ('succeefully logined in to qq,')
+        self.bot_identifier=QqPerson(bot.conf.QQID,bot)
+        for user in self.bot.List('buddy'):
+            print (user)
+        try:
+            while True:
+                time.sleep(10)
+        except KeyboardInterrupt:
+            self.disconnect_callback()
+
+    def send_message(self, mess):
+        """
+        """
+        print (mess)
+        super(QqBackend,self).send_message(mess)
+        self.bot.sendTo(mess.frm,mess.body)
+
+    def connect(self):
+        """
+        """
+        return self.bot
+
+    def query_room(self, room):
+        """
+        """
+        r = self.bot.List('group',room)[0]
+        return QqRoom(r, self)
+#
+    @property
+    def mode(self):
+        """
+        """
+        return 'rongcloud'
+#
+    @property
+    def rooms(self):
+        """
+        """
+        joined_room=[]
+        rooms=bot.List('group')
+        for i in rooms:
+            joined_room.append(i.name)
+        print (joined_room)
+        return joined_room
+
+    #def change_presense(self, status=ONLINE, message=''):
+    #    """
+    #    """
+    #    super().change_presence(status=status, message=message)
+    #def change_presence(self, status: str = ONLINE, message: str = '') -> None:
+    #    pass
+    def change_presence(self, status: str = ONLINE, message: str = '') -> None:
+        if status == ONLINE:
+            self.conn.away()  # cancels the away message
+        else:
+            self.conn.away('[%s] %s' % (status, message)) 
+
+
+    
