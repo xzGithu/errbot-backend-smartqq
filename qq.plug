@@ -1,0 +1,13 @@
+[Core]
+name = qq
+module = qq
+
+[Documentation]
+description = qq backend
+
+[Python]
+version = 3
+
+[Errbot]
+min = 3.2.1
+max = 5.1.3
