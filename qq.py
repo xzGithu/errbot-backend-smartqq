@@ -21,21 +21,6 @@ from errbot.rendering.ansiext import AnsiExtension, enable_format, IMTEXT_CHRS
 log = logging.getLogger('errbot.backends.Qqslack')
 
 
-
-
-
-COLORS = {
-    'red': '#FF0000',
-    'green': '#008000',
-    'yellow': '#FFA500',
-    'blue': '#0000FF',
-    'white': '#FFFFFF',
-    'cyan': '#00FFFF'
-}  
-
-
-
-
 class QqSlackPerson(Person):
     """
     This class describes a person on Qq's network.
@@ -123,10 +108,11 @@ class QqBackend(ErrBot):
             sys.exit(1)
         print (self.token)
         self.sc = None  # Will be initialized in serve_once
-        compact = config.COMPACT_OUTPUT if hasattr(config, 'COMPACT_OUTPUT') else False
+        #compact = config.COMPACT_OUTPUT if hasattr(config, 'COMPACT_OUTPUT') else False
         self.timerForLoginReset=None
         self.timerForLogin=None
         self.timerGetMessage=None
+        self.bot_identifier=None
         
 
     def loginSuccessCb(self):
@@ -142,32 +128,35 @@ class QqBackend(ErrBot):
         log.info('Message: name -> ' + self.sc.name)
         log.info('Message: uin  -> ' + str(self.sc.uin))
         self.sc.sendGroupMessage(self.sc.token)
-        self.timerGetMessage.start()
+        #self.timerGetMessage.start()
     def timerLogin(self):
         if self.sc.state == 0:
             self.sc.isLogin(self.loginSuccessCb)
             self.timerForLogin = threading.Timer(1, self.timerLogin)
             self.timerForLogin.start()
-    def getMessage(self):
-        self.timerGetMessage = threading.Timer(1, self.getMessage)
-        self.timerGetMessage.start()
+    def getsMessage(self):
+        #self.timerGetMessage = threading.Timer(1, self.getMessage)
+        #self.timerGetMessage.start()
         msg = self.sc.getMessage()
         log.info(msg)
-        amsg=self.build_msg(msg)
-        log.info(amsg)
-        #self.msg_event_handler(amsg)
+        if msg:
+            mess=self.build_msg(msg)
+            self.msg_event_handler(mess)
+
     def msg_event_handler(self,msg):
+        global text,mentioned
         try:
-            text=msg['content']
+            text=msg['content'][0]
+            print (text)
             user=msg['send_uid']
             touser=msg['to_uid']
             group=msg['group']
         except:
             log.info('-------')
-        print (text)
-        #text, mentioned = self.process_mentions(text)
-        msg=Message(text,extras={})
+        text, mentioned = self.process_mentions(text)
+        msg=Message(text)
         msg.frm=QqSlackPerson(self.sc,user,group)
+        print (msg,msg.body)
         msg.to=QqSlackPerson(self.sc,touser,group)
         self.callback_message(msg)
         if mentioned:
@@ -190,6 +179,7 @@ class QqBackend(ErrBot):
                 log.debug('Someone mentioned')
                 mentioned.append(identifier)
                 text = text.replace(word, str(identifier))
+        print (text,mentioned)
         return text,mentioned
     def build_msg(self,msg):
         mess={}
@@ -205,26 +195,32 @@ class QqBackend(ErrBot):
     def serve_once(self):
         self.sc=Login(self.token)
         log.info("Verifying authentication token")
-        if self.sc:
-            self.sc.downloadPtqr()
-            self.sc.writePtqr()
-            self.sc.getToken()
+        self.sc.downloadPtqr()
+        self.sc.writePtqr()
+        self.sc.getToken()
         self.timerForLogin=threading.Timer(1,self.timerLogin)
         self.timerForLogin.start()
-        self.timerGetMessage=threading.Timer(1,self.getMessage)
+        #self.timerGetMessage=threading.Timer(1,self.getMessage)
+        
         log.info("Verifying authentication token")
-        # self.auth = self.api_call("auth.test", raise_errors=False)
-        try:
-            while True:
-                for message in self.sc.getMessage():
-                    print (message)
-        except KeyboardInterrupt:
-            log.info("Interrupt received, shutting down..")
-            return True
-        except Exception:
-            log.exception("Error reading from RTM stream:")
-        finally:
-            log.debug("Triggering disconnect callback")
+        self.bot_identifier = QqSlackPerson(self.sc, self.sc.name)
+        time.sleep(20)
+        if self.sc.state:
+            log.info("connected")
+            self.reset_reconnection_count()
+            try:
+                while True:
+                   self.getsMessage() 
+            except KeyboardInterrupt:
+                log.info("Interrupt received, shutting down..")
+                return True
+            except Exception:
+                log.exception("Error reading from RTM stream:")
+            finally:
+                log.debug("Triggering disconnect callback")
+                self.disconnect_callback()
+        else:
+            raise Exception('Connection failed, invalid nm?')
             self.disconnect_callback()
     def send_message(self, msg):
         
@@ -236,11 +232,11 @@ class QqBackend(ErrBot):
         self.api_call('users.setPresence', data={'presence': 'auto' if status == ONLINE else 'away'})
 
 
-    def build_identifier(self, txtrep):
+    def build_identifier(self, txtrep:str):
         log.debug("building an identifier from %s" % txtrep)
         if txtrep.startswith('!'):
-            userid=self.sc.uin
-            roomid=self.token
+            userid=self.sc.name
+            roomid=2167480848
         return QqSlackPerson(self.sc,userid,roomid)
 
 
@@ -274,8 +270,6 @@ class QqBackend(ErrBot):
 
 
 
-    def process_mentions(self, text):
-        pass
 class QqRoom(Room):
     def invite(self, *args) -> None:
         log.error('Not implemented')
