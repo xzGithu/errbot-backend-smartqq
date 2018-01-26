@@ -106,7 +106,6 @@ class QqBackend(ErrBot):
                 'cannot connect to qq.'
             )
             sys.exit(1)
-        print (self.token)
         self.sc = None  # Will be initialized in serve_once
         #compact = config.COMPACT_OUTPUT if hasattr(config, 'COMPACT_OUTPUT') else False
         self.timerForLoginReset=None
@@ -147,7 +146,6 @@ class QqBackend(ErrBot):
         global text,mentioned
         try:
             text=msg['content'][0]
-            print (text)
             user=msg['send_uid']
             touser=msg['to_uid']
             group=msg['group']
@@ -191,6 +189,7 @@ class QqBackend(ErrBot):
             mess['group']=msg['result'][0]['value']['group_code']
         except:
             mess={'send_uid':'','to_uid':'','content':[],'time':'','group':''}
+        log.debug("Processing qq event: %s" % msg)
         return mess
     def serve_once(self):
         self.sc=Login(self.token)
@@ -207,6 +206,7 @@ class QqBackend(ErrBot):
         time.sleep(20)
         if self.sc.state:
             log.info("connected")
+            self.connect_callback()
             self.reset_reconnection_count()
             try:
                 while True:
@@ -223,10 +223,14 @@ class QqBackend(ErrBot):
             raise Exception('Connection failed, invalid nm?')
             self.disconnect_callback()
     def send_message(self, msg):
-        
+        log.debug('wwwwww111111 %s' %msg)
         super().send_message(msg)
-
-
+        body=msg.body
+        #if msg.type=="qq":
+            
+        self.sc.sendGroupMessage(body)
+        #else:
+        #    self.sc.sendGroupMessage(msg)
 
     def change_presence(self, status: str = ONLINE, message: str = '') -> None:
         self.api_call('users.setPresence', data={'presence': 'auto' if status == ONLINE else 'away'})
@@ -242,12 +246,15 @@ class QqBackend(ErrBot):
 
     def build_reply(self, msg, text=None, private=False, threaded=False):
         log.debug('Threading is %s' % threaded)
+        log.debug('msgs is %s' % msg)
+        log.debug('text is  %s ' %text)
         response = self.build_message(text)
+        log.debug('------resp %s' %response)
         response.frm = self.bot_identifier
+        response.to = msg.frm
         if private:
-            response.to = msg.frm
-        else:
-            response.to = msg.frm.room if isinstance(msg.frm, RoomOccupant) else msg.frm
+            response.type="qq"
+        log.debug('wwww---resps %s' %response)
         return response
 
 
