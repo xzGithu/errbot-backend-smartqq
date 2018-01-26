@@ -202,7 +202,7 @@ class Login:
              '"face":333,"clientid":53999199,"msg_id":' + str(msgId()) + ',"psessionid":"' + self.psessionid + '"}',
       })
       request = urllib.request.Request(api['send'], data=data.encode('utf-8'), headers={
-        'Referer': 'https://d1.web2.qq.com/cfproxy.html?v=20151105001&callback=1',
+        'Referer': 'https://d1.web2.qq.com/proxy.html?v=20151105001&callback=1&id=2',
         'Content-Type': 'application/x-www-form-urlencoded',
         'Connection': 'keep-alive',
         'User-Agent': USER_AGENT,
