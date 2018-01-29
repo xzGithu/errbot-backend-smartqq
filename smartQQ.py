@@ -139,8 +139,7 @@ class Login:
   def getGroup(self):
     try:
       data = urllib.parse.urlencode({
-        'r': '{"vfwebqq":"' + str(self.vfwebqq) + '","hash":"' + hash(self.uin, self.ptwebqq) + '"}',
-      })
+        'r': '{"vfwebqq":"' + str(self.vfwebqq) + '","hash":"' + hash(self.uin, self.ptwebqq) + '"}',})
       request = urllib.request.Request(api['group'], data=data.encode('utf-8'), headers={
         'Referer': 'http://s.web2.qq.com/proxy.html?v=20130916001&callback=1&id=1',
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -154,12 +153,22 @@ class Login:
       print('Message: 获取群组')
     except:
       self.getGroup()
+#根据uin获取昵称
+  def friend_info(self,uin):
+    url = "https://s.web2.qq.com/api/get_friend_info2?tuin=%d&type=1&vfwebqq=%s" \
+     "&t=0.1" % (uin, self.vfwebqq)
+    header = {"referer": "http://d1.web2.qq.com/proxy.html?v=20151105001&callback=1&id=2", "User-Agent": USER_AGENT}
+    request = urllib.request.Request(url,headers=header)
+    response = self.opener.open(request)
+    obj = json.loads(response.read().decode())
+    frinick = obj["result"]["nick"]
+    return  frinick
+
 
   # 获取在线好友列表
   def getFriends(self):
     try:
-      url = api['friends'] + '?vfwebqq=' + str(
-        self.vfwebqq) + '&clientid=53999199&psessionid=' + self.psessionid + '&t=' + str(time.time())
+      url = api['friends'] + '?vfwebqq=' + str(self.vfwebqq) + '&clientid=53999199&psessionid=' + self.psessionid + '&t=' + str(time.time())
       request = urllib.request.Request(url, headers={
         'Referer': 'http://d1.web2.qq.com/proxy.html?v=20151105001&callback=1&id=2',
         'User-Agent': USER_AGENT,
@@ -167,7 +176,7 @@ class Login:
       response = self.opener.open(request)
       obj = json.loads(response.read().decode())
       self.friends = obj['result']
-      print (self.friends)
+      #print (self.friends)
       print('Message: 获取在线好友列表')
     except:
       self.friends = []
@@ -176,8 +185,7 @@ class Login:
   def getMessage(self):
     try:
       data = urllib.parse.urlencode({
-        'r': '{"ptwebqq": "' + self.ptwebqq + '", "clientid": 53999199, "psessionid": "' + self.psessionid + '", "key": ""}',
-      })
+        'r': '{"ptwebqq": "' + self.ptwebqq + '", "clientid": 53999199, "psessionid": "' + self.psessionid + '", "key": ""}',})
       request = urllib.request.Request(api['poll2'], data=data.encode('utf-8'), headers={
         'Content-Type': 'application/x-www-form-urlencoded',
         'Host': 'd1.web2.qq.com',
@@ -188,20 +196,19 @@ class Login:
       response = self.opener.open(request, timeout=60)  # 60秒后收不到消息切断连接
       obj = json.loads(response.read().decode())
       return obj 
-      #return (obj['result'][0]['value']['content'][1]) 
     except:
       return {}
 
   # 发送数据
-  def sendGroupMessage(self, message):
+  def sendMessage(self, message,uin,msgtype):
     # 发送数据
     try:
       data = urllib.parse.urlencode({
-        'r': '{"group_uin":' + str(self.item['gid']) + ',"content":"' +
+        'r': '{"'+msgtype+'":' + str(uin) + ',"content":"' +
              '[\\"' + message + '\\",[\\"font\\",{\\"name\\":\\"宋体\\",\\"size\\":10,\\"style\\":[0,0,0],\\"color\\":\\"000000\\"}]]",' +
              '"face":333,"clientid":53999199,"msg_id":' + str(msgId()) + ',"psessionid":"' + self.psessionid + '"}',
       })
-      request = urllib.request.Request(api['send'], data=data.encode('utf-8'), headers={
+      request = urllib.request.Request(api[msgtype], data=data.encode('utf-8'), headers={
         'Referer': 'https://d1.web2.qq.com/proxy.html?v=20151105001&callback=1&id=2',
         'Content-Type': 'application/x-www-form-urlencoded',
         'Connection': 'keep-alive',
@@ -210,3 +217,4 @@ class Login:
       response = self.opener.open(request)  # {"errCode":0,"msg":"send ok"}
     except:
       pass
+
