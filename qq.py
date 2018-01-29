@@ -20,7 +20,7 @@ from errbot.rendering.ansiext import AnsiExtension, enable_format, IMTEXT_CHRS
 # Can't use __name__ because of Yapsy
 log = logging.getLogger('errbot.backends.Qqslack')
 
-
+pat='\*'
 class QqSlackPerson(Person):
     """
     This class describes a person on Qq's network.
@@ -33,11 +33,18 @@ class QqSlackPerson(Person):
 
     @property
     def userid(self):
-        return self._userid
+#        return self._userid
+        userids = self._sc.friend_info(self._userid)
+        return userids
 
     @property
     def username(self):
-        user = self._sc.name
+        #user = self._sc.name
+#        user = self._userid
+        if self._userid!=self._sc.uin:
+            user = self._sc.friend_info(self._userid)
+        else:
+            user = self._userid
         return user
 
     @property
@@ -56,7 +63,8 @@ class QqSlackPerson(Person):
 
     @property
     def fullname(self):
-        user = self._sc.name
+#        user = self._userid
+        user = self._sc.friend_info(self._userid)
         return user
 
     def __unicode__(self):
@@ -112,6 +120,8 @@ class QqBackend(ErrBot):
         self.timerForLogin=None
         self.timerGetMessage=None
         self.bot_identifier=None
+        self.uin=None
+        self.msgtype=None
         
 
     def loginSuccessCb(self):
@@ -126,7 +136,6 @@ class QqBackend(ErrBot):
         log.info('Message: login successfully')
         log.info('Message: name -> ' + self.sc.name)
         log.info('Message: uin  -> ' + str(self.sc.uin))
-        self.sc.sendGroupMessage(self.sc.token)
         #self.timerGetMessage.start()
     def timerLogin(self):
         if self.sc.state == 0:
@@ -144,17 +153,22 @@ class QqBackend(ErrBot):
 
     def msg_event_handler(self,msg):
         global text,mentioned
-        try:
+        #try:
+        if msg['group']:
             text=msg['content'][0]
             user=msg['send_uid']
             touser=msg['to_uid']
             group=msg['group']
-        except:
-            log.info('-------')
+        else:
+            text=msg['content'][0]
+            user=msg['send_uid']
+            touser=msg['to_uid']
+            group=None
+        #except:
+        #    log.info('-------')
         text, mentioned = self.process_mentions(text)
         msg=Message(text)
         msg.frm=QqSlackPerson(self.sc,user,group)
-        print (msg,msg.body)
         msg.to=QqSlackPerson(self.sc,touser,group)
         self.callback_message(msg)
         if mentioned:
@@ -177,17 +191,33 @@ class QqBackend(ErrBot):
                 log.debug('Someone mentioned')
                 mentioned.append(identifier)
                 text = text.replace(word, str(identifier))
-        print (text,mentioned)
         return text,mentioned
     def build_msg(self,msg):
         mess={}
-        try:
+        if msg['result'][0]['poll_type']=='message':
+            mess['send_uid']=msg['result'][0]['value']['from_uin']
+            mess['to_uid']=msg['result'][0]['value']['to_uin']
+            mess['content']=msg['result'][0]['value']['content'][1:]
+            mess['time']=msg['result'][0]['value']['time']
+            mess['group']=None
+            self.uin=msg['result'][0]['value']['from_uin']
+            self.msgtype='to'
+        elif msg['result'][0]['poll_type']=='group_message':
             mess['send_uid']=msg['result'][0]['value']['send_uin']
             mess['to_uid']=msg['result'][0]['value']['to_uin']
             mess['content']=msg['result'][0]['value']['content'][1:]
             mess['time']=msg['result'][0]['value']['time']
             mess['group']=msg['result'][0]['value']['group_code']
-        except:
+            self.uin=msg['result'][0]['value']['group_code']
+            self.msgtype='group_uin'
+        elif msg['result'][0]['poll_type']=='discu_message':
+            mess['send_uid']=msg['result'][0]['value']['send_uin']
+            mess['to_uid']=msg['result'][0]['value']['to_uin']
+            mess['content']=msg['result'][0]['value']['content'][1:]
+            mess['group']=None
+            self.uin=msg['result'][0]['value']['did']
+            self.msgtype='did'
+        else:
             mess={'send_uid':'','to_uid':'','content':[],'time':'','group':''}
         log.debug("Processing qq event: %s" % msg)
         return mess
@@ -210,7 +240,7 @@ class QqBackend(ErrBot):
             self.reset_reconnection_count()
             try:
                 while True:
-                   self.getsMessage() 
+                    self.getsMessage() 
             except KeyboardInterrupt:
                 log.info("Interrupt received, shutting down..")
                 return True
@@ -226,11 +256,16 @@ class QqBackend(ErrBot):
         log.debug('wwwwww111111 %s' %msg)
         super().send_message(msg)
         body=msg.body
-        #if msg.type=="qq":
-            
-        self.sc.sendGroupMessage(body)
-        #else:
-        #    self.sc.sendGroupMessage(msg)
+        print (len(body))
+        msglist = self.message_cut(body)
+        for msg in msglist:
+            self.sc.sendMessage(msg,self.uin,self.msgtype)
+
+    def message_cut(self,msg):
+        c=300
+        msgs = [msg[i:i+c] for i in range(0,len(msg),c)]
+        return msgs
+
 
     def change_presence(self, status: str = ONLINE, message: str = '') -> None:
         self.api_call('users.setPresence', data={'presence': 'auto' if status == ONLINE else 'away'})
@@ -245,11 +280,11 @@ class QqBackend(ErrBot):
 
 
     def build_reply(self, msg, text=None, private=False, threaded=False):
-        log.debug('Threading is %s' % threaded)
-        log.debug('msgs is %s' % msg)
-        log.debug('text is  %s ' %text)
+        #log.debug('Threading is %s' % threaded)
+        #log.debug('msgs is %s' % msg)
+        #log.debug('text is  %s ' %text)
         response = self.build_message(text)
-        log.debug('------resp %s' %response)
+        #log.debug('------resp %s' %response)
         response.frm = self.bot_identifier
         response.to = msg.frm
         if private:
