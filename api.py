@@ -35,10 +35,18 @@ api = {
   # 请求方式post
   'friends': 'http://d1.web2.qq.com/channel/get_online_buddies2',
   
-  # 发送数据接口
+  # 发送group数据接口
   # 请求方式：post
-  'send': 'https://d1.web2.qq.com/channel/send_qun_msg2',
+  'group_uin': 'https://d1.web2.qq.com/channel/send_qun_msg2',
   
+  # 发送friend数据接口
+  # 请求方式：post
+  'to': 'https://d1.web2.qq.com/channel/send_buddy_msg2',
+
+  # 发送dis数据接口
+  # 请求方式：post
+  'did': 'https://d1.web2.qq.com/channel/send_discu_msg2',
+
   # 获取数据接口
   # 请求方式：post
   'poll2': 'https://d1.web2.qq.com/channel/poll2',
