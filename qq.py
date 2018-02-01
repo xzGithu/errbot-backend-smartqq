@@ -143,29 +143,31 @@ class QqBackend(ErrBot):
             self.timerForLogin = threading.Timer(1, self.timerLogin)
             self.timerForLogin.start()
     def getsMessage(self):
-        #self.timerGetMessage = threading.Timer(1, self.getMessage)
-        #self.timerGetMessage.start()
         msg = self.sc.getMessage()
-        log.info(msg)
         if msg:
-            mess=self.build_msg(msg)
-            self.msg_event_handler(mess)
+            if msg['retcode']==0:
+                mess=self.build_msg(msg)
+                self.msg_event_handler(mess)
+            
 
     def msg_event_handler(self,msg):
         global text,mentioned
-        #try:
         if msg['group']:
-            text=msg['content'][0]
+            try:
+                text=msg['content'][0]
+            except:
+                text='Null'
             user=msg['send_uid']
             touser=msg['to_uid']
             group=msg['group']
         else:
-            text=msg['content'][0]
+            try:
+                text=msg['content'][0]
+            except:
+                text='Null'
             user=msg['send_uid']
             touser=msg['to_uid']
             group=None
-        #except:
-        #    log.info('-------')
         text, mentioned = self.process_mentions(text)
         msg=Message(text)
         msg.frm=QqSlackPerson(self.sc,user,group)
@@ -173,7 +175,6 @@ class QqBackend(ErrBot):
         self.callback_message(msg)
         if mentioned:
             self.callback_mention(msg, mentioned)
-        
     def process_mentions(self,text):
         mentioned=[]
         ms=[]
@@ -194,32 +195,38 @@ class QqBackend(ErrBot):
         return text,mentioned
     def build_msg(self,msg):
         mess={}
-        if msg['result'][0]['poll_type']=='message':
-            mess['send_uid']=msg['result'][0]['value']['from_uin']
-            mess['to_uid']=msg['result'][0]['value']['to_uin']
-            mess['content']=msg['result'][0]['value']['content'][1:]
-            mess['time']=msg['result'][0]['value']['time']
-            mess['group']=None
-            self.uin=msg['result'][0]['value']['from_uin']
-            self.msgtype='to'
-        elif msg['result'][0]['poll_type']=='group_message':
-            mess['send_uid']=msg['result'][0]['value']['send_uin']
-            mess['to_uid']=msg['result'][0]['value']['to_uin']
-            mess['content']=msg['result'][0]['value']['content'][1:]
-            mess['time']=msg['result'][0]['value']['time']
-            mess['group']=msg['result'][0]['value']['group_code']
-            self.uin=msg['result'][0]['value']['group_code']
-            self.msgtype='group_uin'
-        elif msg['result'][0]['poll_type']=='discu_message':
-            mess['send_uid']=msg['result'][0]['value']['send_uin']
-            mess['to_uid']=msg['result'][0]['value']['to_uin']
-            mess['content']=msg['result'][0]['value']['content'][1:]
-            mess['group']=None
-            self.uin=msg['result'][0]['value']['did']
-            self.msgtype='did'
-        else:
-            mess={'send_uid':'','to_uid':'','content':[],'time':'','group':''}
+        try:
+            if msg['result'][0]['poll_type']=='message':
+                mess['send_uid']=msg['result'][0]['value']['from_uin']
+                mess['to_uid']=msg['result'][0]['value']['to_uin']
+                mess['content']=msg['result'][0]['value']['content'][1:]
+                mess['time']=msg['result'][0]['value']['time']
+                mess['group']=None
+                self.uin=msg['result'][0]['value']['from_uin']
+                self.msgtype='to'
+            elif msg['result'][0]['poll_type']=='group_message':
+                mess['send_uid']=msg['result'][0]['value']['send_uin']
+                mess['to_uid']=msg['result'][0]['value']['to_uin']
+                mess['content']=msg['result'][0]['value']['content'][1:]
+                mess['time']=msg['result'][0]['value']['time']
+                mess['group']=msg['result'][0]['value']['group_code']
+                self.uin=msg['result'][0]['value']['group_code']
+                self.msgtype='group_uin'
+            elif msg['result'][0]['poll_type']=='discu_message':
+                mess['send_uid']=msg['result'][0]['value']['send_uin']
+                mess['to_uid']=msg['result'][0]['value']['to_uin']
+                mess['content']=msg['result'][0]['value']['content'][1:]
+                mess['group']=None
+                self.uin=msg['result'][0]['value']['did']
+                self.msgtype='did'
+            else:
+                log.debug('test no commadn')
+                mess={'send_uid':self.sc.uin,'to_uid':self.sc.uin,'content':[],'time':'','group':''}
+        except:
+            mess={'send_uid':self.sc.uin,'to_uid':self.sc.uin,'content':msg,'time':'','group':''}
+            log.info("Unknow message received!!")
         log.debug("Processing qq event: %s" % msg)
+        log.debug("Processing errbot event: %s" % mess)
         return mess
     def serve_once(self):
         self.sc=Login(self.token)
@@ -253,13 +260,12 @@ class QqBackend(ErrBot):
             raise Exception('Connection failed, invalid nm?')
             self.disconnect_callback()
     def send_message(self, msg):
-        log.debug('wwwwww111111 %s' %msg)
         super().send_message(msg)
         body=msg.body
-        print (len(body))
         msglist = self.message_cut(body)
-        for msg in msglist:
-            self.sc.sendMessage(msg,self.uin,self.msgtype)
+        for msgl in msglist:
+            self.sc.sendMessage(msgl,self.uin,self.msgtype)
+            log.info('already send')
 
     def message_cut(self,msg):
         c=300
@@ -268,7 +274,8 @@ class QqBackend(ErrBot):
 
 
     def change_presence(self, status: str = ONLINE, message: str = '') -> None:
-        self.api_call('users.setPresence', data={'presence': 'auto' if status == ONLINE else 'away'})
+        #self.api_call('users.setPresence', data={'presence': 'auto' if status == ONLINE else 'away'})
+        super(QqBackend, self).change_presence(status=status, message=message)
 
 
     def build_identifier(self, txtrep:str):
@@ -280,18 +287,17 @@ class QqBackend(ErrBot):
 
 
     def build_reply(self, msg, text=None, private=False, threaded=False):
-        #log.debug('Threading is %s' % threaded)
-        #log.debug('msgs is %s' % msg)
-        #log.debug('text is  %s ' %text)
         response = self.build_message(text)
-        #log.debug('------resp %s' %response)
         response.frm = self.bot_identifier
         response.to = msg.frm
+        log.debug(msg)
         if private:
             response.type="qq"
         log.debug('wwww---resps %s' %response)
         return response
-
+#    def send_simple_reply(self, msg, text, private=False, threaded=False):
+#        reply = self.build_reply(msg, text, private=private, threaded=threaded)
+#        self.sc.sendMessage(reply,self.uin,self.msgtype)
 
 
     def shutdown(self):
