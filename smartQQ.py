@@ -161,7 +161,10 @@ class Login:
     request = urllib.request.Request(url,headers=header)
     response = self.opener.open(request)
     obj = json.loads(response.read().decode())
-    frinick = obj["result"]["nick"]
+    try:
+        frinick = obj["result"]["nick"]
+    except:
+        frinick = 'NotFri'
     return  frinick
 
 
